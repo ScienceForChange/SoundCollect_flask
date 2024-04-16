@@ -5,16 +5,13 @@ import sys
 import json
 import numpy as np
 from maad import spl, sound
-from flask import Flask
-from flask import render_template
-from flask import request
+from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-@app.route("/")
-def main():
-    return "You're home!"
-
+# @app.route("/")
+# def main():
+#     return "You're home!"
 
 @app.route('/calibrate', methods=['POST'])
 def calibrate():
@@ -22,9 +19,9 @@ def calibrate():
     response = {}
 
     if request.method == 'POST':
-        # return request.files['file'].filename
+
         f = request.files['uploaded_file']
-        # return ('calibrate_audio')
+
         f.save(f"./audio_calibrated/{request.files['uploaded_file'].filename}")
 
     calibrated_audio = {}
@@ -45,12 +42,10 @@ def calibrate():
     # calculare Leq
     Leq = maad.util.mean_dB(LeqT)
 
-    # print(calibrated_audio)
-
+    # return response
     response['Leq'] = Leq
 
     return json.dumps(response)
-
 
 
 @app.route('/audio')
@@ -105,15 +100,74 @@ def audio():
     response['L10'] = L10
     # add sharpness
     response['sharpness'] = sharp
-    # add roughness
-    # response['roughness'] = rough
-
-    # # remove audio file after processing
-    # for filename in glob.glob('audio/*.*'):
-    #     os.remove(filename)
 
     # return response
     return json.dumps(response)
+
+
+@app.route('/audio_new')
+def audio_new():
+
+    response = {}
+
+    Gain = 0
+    sensitivity = -29.12
+    dt = 1      # time in seconds
+    vadc = 2
+    dBref = 94
+
+    # load audio file
+    w, fs = maad.sound.load('./audio/Oficina-X.WAV')
+
+    # calculate LeqT
+    LeqT = maad.spl.wav2leq(w, fs, gain=Gain, Vadc=vadc, dt=dt, sensitivity=sensitivity, dBref = dBref)
+
+    
+    # Create a JSON Encoder class
+    class json_serialize(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, np.integer):
+                return int(obj)
+            if isinstance(obj, np.floating):
+                return float(obj)
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return json.JSONEncoder.default(self, obj)
+    # serialize LEQT to JSON
+    leqt_json = json.dumps({'nums': LeqT}, cls=json_serialize)
+    # leqt_json = json.dumps({'nums': response.tolist()})
+
+
+    # calculate Lmin
+    Lmin = min(LeqT)
+
+    # calculate Lmax
+    Lmax = max(LeqT)
+
+    # calculare Leq
+    Leq = maad.util.mean_dB(LeqT)
+
+    # sort the median array to get L90 and L10
+    sorted_median_array = sorted(LeqT)
+
+    # calculate L90 and L10
+    L90 = sorted_median_array[int(len(LeqT) * 0.1)]
+    L10 = sorted_median_array[int(len(LeqT) * 0.9)]
+
+    # create a response
+    response['Lmin'] = Lmin
+    response['Lmax'] = Lmax
+    response['Leq'] = Leq
+    # response['LeqT'] = leqt_json
+    response['L90'] = L90
+    response['L10'] = L10
+
+    # return np.array(LeqT)
+
+    return json.dumps(response)
+
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
