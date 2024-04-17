@@ -11,7 +11,8 @@ WORKDIR /flask-simple-app
 COPY . .
 
 RUN pip3 install -r requirements.txt
-RUN pip install flask
-RUN pip install scikit-maad
+# RUN pip3 install https://github.com/endolith/waveform_analysis.git@master
+# RUN pip install flask
+# RUN pip install scikit-maad
 
 CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0" , "--debug"]
