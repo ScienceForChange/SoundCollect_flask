@@ -121,67 +121,52 @@ def audio():
     return json.dumps(response)
 
 
-@app.route('/audio_new')
-def audio_new():
+@app.route('/audio_new/<gain>')
+def audio_new(gain):
 
-    response = {}
-
-    Gain = 0
-    sensitivity = -29.12
-    dt = 1      # time in seconds
-    vadc = 2
+    gain = float(gain)
+    Vadc = 2
+    dt = 1
+    sensitivity = -38
     dBref = 94
 
-    # load audio file
-    w, fs = maad.sound.load('./audio/Oficina-X.WAV')
+    #Load the .wav file
+    signal, fs = maad.sound.load('./audio/Oficina-X.WAV')
 
-    # calculate LeqT
-    LeqT = maad.spl.wav2leq(w, fs, gain=Gain, Vadc=vadc, dt=dt, sensitivity=sensitivity, dBref = dBref)
-
-    
-    # Create a JSON Encoder class
-    class json_serialize(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, np.integer):
-                return int(obj)
-            if isinstance(obj, np.floating):
-                return float(obj)
-            if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            return json.JSONEncoder.default(self, obj)
-    # serialize LEQT to JSON
-    leqt_json = json.dumps({'nums': LeqT}, cls=json_serialize)
-    # leqt_json = json.dumps({'nums': response.tolist()})
-
+    #apply "A" weighting filter to .wav signal
+    signal_with_a_weighting = waveform_analysis.A_weight(signal, fs)
+ 
+    #Obtein the equivalent values over time from the "A" weighted signal
+    LAeqT = maad.spl.wav2leq(wave=signal, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
 
     # calculate Lmin
-    Lmin = min(LeqT)
+    LAmin = min(LAeqT)
 
     # calculate Lmax
-    Lmax = max(LeqT)
+    LAmax = max(LAeqT)
 
     # calculare Leq
-    Leq = maad.util.mean_dB(LeqT)
+    LAeq = maad.util.mean_dB(LAeqT)
 
-    # sort the median array to get L90 and L10
-    sorted_median_array = sorted(LeqT)
+    # sort LAeqT array (for L10 and L90)
+    sorted_median_array = sorted(LAeqT)
 
     # calculate L90 and L10
-    L90 = sorted_median_array[int(len(LeqT) * 0.1)]
-    L10 = sorted_median_array[int(len(LeqT) * 0.9)]
+    L90 = sorted_median_array[int(len(LAeqT) * 0.1)]
+    L10 = sorted_median_array[int(len(LAeqT) * 0.9)]
 
     # create a response
-    response['Lmin'] = Lmin
-    response['Lmax'] = Lmax
-    response['Leq'] = Leq
-    # response['LeqT'] = leqt_json
+    response = {}
+
+    response['LAeqT'] = LAeqT.tolist()
+    response['Leq'] = LAeq
+    response['Lmin'] = LAmin
+    response['Lmax'] = LAmax
     response['L90'] = L90
     response['L10'] = L10
 
-    # return np.array(LeqT)
+    return response
 
-    # return json.dumps(response)
-    return LeqT
 
 
 def ABC_weighting(curve='A'):
