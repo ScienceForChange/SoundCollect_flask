@@ -22,12 +22,15 @@ from numpy import pi, log10
 from scipy.signal import zpk2tf, zpk2sos, freqs, sosfilt
 from waveform_analysis.weighting_filters._filter_design import _zpkbilinear
 
+from flask import Flask
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
-# @app.route("/")
-# def main():
-#     return "You're home!"
+@app.route("/test")
+def main():
+    return "You're home!"
 
 @app.route('/calibrate', methods=['POST'])
 def calibrate():
@@ -42,26 +45,28 @@ def calibrate():
 
     calibrated_audio = {}
 
-    Gain = 0
-    sensitivity = -29.12
-    # time by seconds
-    DT = 1
-    VADC = 2
+    gain = 40
+    Vadc = 2
+    dt = 1
+    sensitivity = -38
     dBref = 94
 
     # load audio file
     w, fs = maad.sound.load(f"./audio_calibrated/{request.files['uploaded_file'].filename}")
 
-    # calculate LeqT
-    LeqT = maad.spl.wav2leq(w, fs, gain=Gain, Vadc=VADC, dt=DT, sensitivity=sensitivity, dBref = dBref)
+    #apply "A" weighting filter to .wav signal
+    signal_with_a_weighting = waveform_analysis.A_weight(w, fs)
+ 
+    #Obtein the equivalent values over time from the "A" weighted signal
+    LAeqT = maad.spl.wav2leq(wave=signal_with_a_weighting, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
 
     # calculare Leq
-    Leq = maad.util.mean_dB(LeqT)
+    LAeq = maad.util.mean_dB(LAeqT)
 
     # return response
-    response['Leq'] = Leq
+    response['calibrated_value'] = LAeq
 
-    return json.dumps(response)
+    return response
 
 
 @app.route('/audio')
@@ -121,10 +126,11 @@ def audio():
     return json.dumps(response)
 
 
-@app.route('/audio_new/<gain>')
-def audio_new(gain):
+@app.route('/audio_new/<coeficiente_calibracion>')
+def audio_new(coeficiente_calibracion):
 
-    gain = float(gain)
+    coeficiente_calibracion = float(coeficiente_calibracion)
+    gain = 40
     Vadc = 2
     dt = 1
     sensitivity = -38
@@ -137,16 +143,20 @@ def audio_new(gain):
     signal_with_a_weighting = waveform_analysis.A_weight(signal, fs)
  
     #Obtein the equivalent values over time from the "A" weighted signal
-    LAeqT = maad.spl.wav2leq(wave=signal, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    LAeqT = maad.spl.wav2leq(wave=signal_with_a_weighting, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+
+    # calculare Leq
+    LAeq = maad.util.mean_dB(LAeqT)
+
+    # apply correction from user input value
+    LAeqT = LAeqT - coeficiente_calibracion
+    LAeq = LAeq - coeficiente_calibracion
 
     # calculate Lmin
     LAmin = min(LAeqT)
 
     # calculate Lmax
     LAmax = max(LAeqT)
-
-    # calculare Leq
-    LAeq = maad.util.mean_dB(LAeqT)
 
     # sort LAeqT array (for L10 and L90)
     sorted_median_array = sorted(LAeqT)
@@ -165,8 +175,9 @@ def audio_new(gain):
     response['L90'] = L90
     response['L10'] = L10
 
-    return response
+    # response.headers.add('Access-Control-Allow-Origin', '*')
 
+    return response
 
 
 def ABC_weighting(curve='A'):
@@ -378,7 +389,7 @@ def script(gain=40):
     #p = maad.spl.wav2dBSPL(w, gain, Vadc, sensitivity, dBref, pRef=2e-05)
 
     #apply A weighting filter to .wav signal
-    w = waveform_analysis.A_weight(w, fs)
+    # w = waveform_analysis.A_weight(w, fs)
     rms_value = np.sqrt(np.mean(np.abs(w) ** 2))
     print(len(w))
     #print(weighted_signal)
@@ -393,56 +404,73 @@ def script(gain=40):
     return plt.show()
 
 
-    #print('Leq from volt', maad.util.mean_dB(weighted_signal))
-    #result = 20 * np.log10(rms_value)
-    #print(result)
+@app.route('/test_route')
+def test_route():
+    return 'this is test route text \n\r'
 
-@app.route('/temp')
-def temp(gain=10):
-    
-    # gain=40
+
+def temp_new_a_weight():
+        #Constants
+    gain= 2.8 #if sensitivity=-38 then gain=40.8
     Vadc = 2
     dt = 1
-    sensitivity = -38
+    sensitivity = 0 # if sensitivity=0 then gain=2.8
     dBref = 94
+    coef_calib=0 #Valor SPL_APP - SPL_Sonometro. Usar este valor para ajustar LAeq (y posteriores).
+    flag_calib1=0
+    flag_calib2=0
+    want_to_calibrate=input("¿Quieres calibrar?")
+    match want_to_calibrate:
+        case "yes":
+            is_sonometer = input("¿Tienes un sonometro?")
+            match is_sonometer:
+                case "yes":
+                    user_dBA=input("Introduce the SPL (dBA) value: ")
+                    user_dBA=float(user_dBA)
+                    flag_calib1=1
+                    flag_calib2=1
+                case "no":
+                    print("Measure in a silent room. It's supposed to measure 40dBA.")
+                    flag_calib1 = 1
+                    flag_calib2 = 0
+        case "no":
+            print("Ok, default values are used.")
+            flag_calib1=0
 
     #Load the .wav file
-    signal, fs = maad.sound.load('./audio/Oficina-X.WAV')
+    w, fs = maad.sound.load('Audios test/test-office-AA-iphone.wav')
+    #w, fs = load('Audio Bcn/rosa-ortega.alsius.marta.WAV', wav_calib=2 * 2 **0.5)
+    #w, fs = load('Audio Bcn/rosa-ortega.alsius.marta.WAV')
 
-    #apply "A" weighting filter to .wav signal
-    signal_with_a_weighting = waveform_analysis.A_weight(signal, fs)
- 
-    #Obtein the equivalent values over time from the "A" weighted signal
-    LAeqT = maad.spl.wav2leq(wave=signal, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    #p = maad.spl.wav2leq(wave=w, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    #p = maad.spl.wav2dBSPL(w, gain, Vadc, sensitivity, dBref, pRef=2e-05)
 
-    # calculate Lmin
-    LAmin = min(LAeqT)
+    #apply A weighting filter to .wav signal
+    wA = waveform_analysis.A_weight(w, fs)
+    rms_value = np.sqrt(np.mean(np.abs(wA) ** 2))
+    print(len(wA))
+    #print(weighted_signal)
 
-    # calculate Lmax
-    LAmax = max(LAeqT)
-
-    # calculare Leq
-    LAeq = maad.util.mean_dB(LAeqT)
-
-    # sort LAeqT array (for L10 and L90)
-    sorted_median_array = sorted(LAeqT)
-
-    # calculate L90 and L10
-    L90 = sorted_median_array[int(len(LAeqT) * 0.1)]
-    L10 = sorted_median_array[int(len(LAeqT) * 0.9)]
-
-    # create a response
-    response = {}
-
-    response['LAeqT'] = LAeqT.tolist()
-    response['LAeq'] = LAeq
-    response['LAmin'] = LAmin
-    response['LAmax'] = LAmax
-    response['L90'] = L90
-    response['L10'] = L10
-
-    return response
-
+    #Obtein the equivalent values from the A weighted signal
+    LAeq = maad.spl.wav2leq(wave=wA, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    LAeqT= maad.util.mean_dB(LAeq)
+    if flag_calib1==1 and flag_calib2==1:
+        coef_calib=LAeqT-user_dBA
+        LAeq_calib=LAeq-coef_calib
+        LAeqT_calib= LAeqT-coef_calib
+    elif flag_calib1==1 and flag_calib2==0:
+        coef_calib = LAeqT-40
+        LAeq_calib = LAeq-coef_calib
+        LAeqT_calib = LAeqT-coef_calib
+    elif flag_calib1==0:
+        coef_calib=0
+        LAeq_calib = LAeq - coef_calib
+        LAeqT_calib = LAeqT - coef_calib
+    print("Wav file duration (in seconds): ",len(LAeq))
+    #print(LAeq)
+    print('LAeq from wav', LAeqT)
+    print("LAeq calibrated: ",LAeqT_calib)
+    print("Factor de corrección: ",coef_calib)
 
 if __name__ == "__main__":
     app.run(debug=True)

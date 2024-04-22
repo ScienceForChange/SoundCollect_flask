@@ -1,0 +1,21 @@
+
+services:
+  flask-server:
+    # ports:
+      # - 80:5000
+    volumes:
+      - ./:/flask-simple-app
+    image: flask-server:0.5
+    restart: unless-stopped
+  nginx:
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt/live/soundcollectflask.com/fullchain.pem:/cert/fullchain.pem
+      - /etc/letsencrypt/live/soundcollectflask.com/privkey.pem:/cert/privkey.pem
+      # - /etc/letsencrypt/options-ssl-nginx.conf:/cert/options-ssl-nginx.conf
+    image: nginx
+    restart: unless-stopped
+
