@@ -25,12 +25,14 @@ from waveform_analysis.weighting_filters._filter_design import _zpkbilinear
 from flask import Flask
 from flask_cors import CORS
 
+import random
+
 app = Flask(__name__)
 CORS(app)
 
 @app.route("/test")
 def main():
-    return "You're home!"
+    return "You're home! ."
 
 @app.route('/calibrate', methods=['POST'])
 def calibrate():
@@ -176,6 +178,77 @@ def audio_new(coeficiente_calibracion):
     response['L10'] = L10
 
     # response.headers.add('Access-Control-Allow-Origin', '*')
+
+    return response
+
+
+@app.route('/audio_new_calling_from_app/<coeficiente_calibracion>', methods=['POST'])
+def audio_new_calling_from_app(coeficiente_calibracion):
+
+    # if request.method == 'POST':
+
+    f = request.files['uploaded_file']
+
+    # create random number
+    random_number = random.randint(1, 100000)
+
+    f.save(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
+
+    coeficiente_calibracion = float(coeficiente_calibracion)
+    gain = 40
+    Vadc = 2
+    dt = 1
+    sensitivity = -38
+    dBref = 94
+
+    #Load the .wav file
+    signal, fs = maad.sound.load(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
+    # signal, fs = maad.sound.load(request.files.get['uploaded_file'])
+
+    #apply "A" weighting filter to .wav signal
+    signal_with_a_weighting = waveform_analysis.A_weight(signal, fs)
+
+    #Obtein the equivalent values over time from the "A" weighted signal
+    LAeqT = maad.spl.wav2leq(wave=signal_with_a_weighting, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+
+    # calculare Leq
+    LAeq = maad.util.mean_dB(LAeqT)
+
+    # apply correction from user input value
+    LAeqT = LAeqT - coeficiente_calibracion
+    LAeq = LAeq - coeficiente_calibracion
+
+    # calculate Lmin
+    LAmin = min(LAeqT)
+
+    # calculate Lmax
+    LAmax = max(LAeqT)
+
+    # sort LAeqT array (for L10 and L90)
+    sorted_median_array = sorted(LAeqT)
+
+    # calculate L90 and L10
+    L90 = sorted_median_array[int(len(LAeqT) * 0.1)]
+    L10 = sorted_median_array[int(len(LAeqT) * 0.9)]
+
+    # initialize response and response_data
+    response = {}
+    response_data = {}
+
+    response_data['LAeqT'] = LAeqT.tolist()
+    response_data['Leq'] = LAeq
+    response_data['Lmin'] = LAmin
+    response_data['Lmax'] = LAmax
+    response_data['L90'] = L90
+    response_data['L10'] = L10
+
+    # response.headers.add('Access-Control-Allow-Origin', '*')
+
+    response['status'] = 'success'
+    response['data'] = response_data
+
+    # remove file after processing it
+    os.remove(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
 
     return response
 
@@ -472,6 +545,9 @@ def temp_new_a_weight():
     print("LAeq calibrated: ",LAeqT_calib)
     print("Factor de corrección: ",coef_calib)
 
+# app.config['MAX_CONTENT_LENGTH'] = 50 * 1000 * 1000
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # app.run(debug=True)
+    app.run(debug=True, threaded=True)
 
