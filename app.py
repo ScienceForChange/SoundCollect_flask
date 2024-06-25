@@ -139,7 +139,8 @@ def audio_new(coeficiente_calibracion):
     dBref = 94
 
     #Load the .wav file
-    signal, fs = maad.sound.load('./audio/Oficina-X.WAV')
+    # signal, fs = maad.sound.load('./audio/Oficina-X.WAV')
+    signal, fs = maad.sound.load('./audio/audio_to_process.WAV')
 
     #apply "A" weighting filter to .wav signal
     signal_with_a_weighting = waveform_analysis.A_weight(signal, fs)
@@ -177,13 +178,14 @@ def audio_new(coeficiente_calibracion):
     response['L90'] = L90
     response['L10'] = L10
 
-    # response.headers.add('Access-Control-Allow-Origin', '*')
+    # remove audio file after processing
+    # os.remove('./audio/audio_to_process.WAV')
 
     return response
 
 
-@app.route('/audio_new_calling_from_app/<coeficiente_calibracion>', methods=['POST'])
-def audio_new_calling_from_app(coeficiente_calibracion):
+@app.route('/convert_audio_into_parameters/<coeficiente_calibracion>', methods=['POST'])
+def convert_audio_into_parameters(coeficiente_calibracion):
 
     # if request.method == 'POST':
 
@@ -475,11 +477,6 @@ def script(gain=40):
     plt.plot(p)
 
     return plt.show()
-
-
-@app.route('/test_route')
-def test_route():
-    return 'this is test route text \n\r'
 
 
 def temp_new_a_weight():

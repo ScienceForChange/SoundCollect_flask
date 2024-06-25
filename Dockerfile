@@ -1,6 +1,7 @@
 # build a docker image and run a container from it:
 # docker build -t flask-server:0.5 .
 # docker run -ti --rm -p 80:5000 -v ./:/flask-simple-app flask-server:0.5
+# or docker compose up??
 
 FROM python:3.10.0-slim-buster
 

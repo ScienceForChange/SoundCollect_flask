@@ -19,3 +19,4 @@ services:
     image: nginx
     restart: unless-stopped
 
+
