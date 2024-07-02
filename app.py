@@ -14,10 +14,10 @@ import scipy
 from numpy import pi, polymul
 from scipy.signal import bilinear
 import waveform_analysis
-import numpy as np
+# import numpy as np
 import matplotlib.pyplot as plt
 
-import numpy as np
+# import numpy as np
 from numpy import pi, log10
 from scipy.signal import zpk2tf, zpk2sos, freqs, sosfilt
 from waveform_analysis.weighting_filters._filter_design import _zpkbilinear
@@ -26,6 +26,43 @@ from flask import Flask
 from flask_cors import CORS
 
 import random
+
+# import sys
+# sys.path.append('..')
+
+# Import mosqito functions
+from mosqito.utils import load
+from mosqito.sq_metrics import roughness_dw, roughness_dw_freq
+
+# Import plot function
+import matplotlib.pyplot as plt
+# Import spectrum computation tool
+from scipy.fft import fft, fftfreq
+# Import mosqito functions
+from mosqito.sq_metrics import loudness_zwst
+from mosqito.sq_metrics import loudness_zwtv
+from mosqito.sq_metrics import loudness_zwst_perseg
+from mosqito.sq_metrics import sharpness_din_st
+from mosqito.sq_metrics import sharpness_din_perseg
+from mosqito.sq_metrics import sharpness_din_from_loudness
+from mosqito.sq_metrics import sharpness_din_freq
+
+# Add MOSQITO to the Python path
+# import sys
+# sys.path.append('..')
+# import maad.sound
+# import maad.features
+# Import numpy
+# import numpy as np
+# Import plot function
+# import matplotlib.pyplot as plt
+# Import spectrum computation tool
+# from scipy.fft import fft, fftfreq
+# Import mosqito functions
+# from mosqito.utils import load
+# from mosqito.sq_metrics import loudness_zwst
+# from mosqito.sq_metrics import loudness_zwtv
+
 
 app = Flask(__name__)
 CORS(app)
@@ -77,7 +114,7 @@ def audio():
     response = {}
 
     # input sound file
-    w, fs = maad.sound.load('./audio/Oficina-X.WAV')
+    w, fs = maad.sound.load('./audio/audio_to_process.WAV')
     p = maad.spl.wav2pressure(wave=w, gain=0)
     maad.spl.pressure2dBSPL(abs(p))
 
@@ -178,8 +215,29 @@ def audio_new(coeficiente_calibracion):
     response['L90'] = L90
     response['L10'] = L10
 
-    # remove audio file after processing
-    # os.remove('./audio/audio_to_process.WAV')
+    audio_file ='./audio/audio_to_process.WAV'
+
+    # calculate fluctuation strength  from audio file =============================================
+    sig, fs = load(audio_file, wav_calib=2 * 2 ** 0.5)
+    #  compute acoustic Loudness according to Zwicker method for stationary signals
+    N, N_specific, bark_axis = loudness_zwst(sig, fs, field_type="free")
+    F = acousticFluctuation(N_specific, fmod=4)
+    response['fluctuation'] = F
+
+    # calculate sharpness =========================================================================
+    sharpness = sharpness_din_st(sig, fs, weighting="din")
+    response['sharpness'] = sharpness
+
+    # calculate loudness ==========================================================================
+    # compute acoustic Loudness according to Zwicker method for stationary signals
+    N, N_specific, bark_axis = loudness_zwst(sig, fs, field_type="free")
+    response['loudness'] = N
+
+    # calculate audio roughness ===================================================================
+    sig, fs = maad.sound.load(audio_file )
+    r, r_spec, bark, time = roughness_dw(sig, fs, overlap=0)
+    response['roughness'] = np.mean(r)
+
 
     return response
 
@@ -544,7 +602,16 @@ def temp_new_a_weight():
 
 # app.config['MAX_CONTENT_LENGTH'] = 50 * 1000 * 1000
 
-if __name__ == "__main__":
-    # app.run(debug=True)
-    app.run(debug=True, threaded=True)
+def acousticFluctuation(specificLoudness, fmod=4):
+    specificLoudnessdiff = np.zeros(len(specificLoudness))
+    for i in range(len(specificLoudness)):
+        if i == 0:
+            specificLoudnessdiff[i] = specificLoudness[i]
+        else:
+            specificLoudnessdiff[i] = abs(specificLoudness[i] - specificLoudness[i - 1])
+    F = (0.008 * sum(0.1 * specificLoudnessdiff)) / ((fmod / 4) + (fmod / 4))
+    return F
 
+if __name__ == "__main__":
+    # app.run(threaded=True)
+    app.run(debug=True, threaded=True)
