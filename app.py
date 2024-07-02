@@ -448,6 +448,162 @@ def acousticFluctuation(specificLoudness, fmod=4):
     F = (0.008 * sum(0.1 * specificLoudnessdiff)) / ((fmod / 4) + (fmod / 4))
     return F
 
+def _derive_coefficients():
+    """
+    Calculate A- and C-weighting coefficients with equations from IEC 61672-1
+
+    This is for reference only. The coefficients were generated with this and
+    then placed in ABC_weighting().
+    """
+    import sympy as sp
+
+    # Section 5.4.6
+    f_r = 1000
+    f_L = sp.Pow(10, sp.Rational('1.5'))  # 10^1.5 Hz
+    f_H = sp.Pow(10, sp.Rational('3.9'))  # 10^3.9 Hz
+    D = sp.sympify('1/sqrt(2)')  # D^2 = 1/2
+
+    f_A = sp.Pow(10, sp.Rational('2.45'))  # 10^2.45 Hz
+
+    # Section 5.4.9
+    c = f_L**2 * f_H**2
+    b = (1/(1-D))*(f_r**2+(f_L**2*f_H**2)/f_r**2-D*(f_L**2+f_H**2))
+
+    f_1 = sp.sqrt((-b - sp.sqrt(b**2 - 4*c))/2)
+    f_4 = sp.sqrt((-b + sp.sqrt(b**2 - 4*c))/2)
+
+    # Section 5.4.10
+    f_2 = (3 - sp.sqrt(5))/2 * f_A
+    f_3 = (3 + sp.sqrt(5))/2 * f_A
+
+    # Section 5.4.11
+    assert abs(float(f_1) - 20.60) < 0.005
+    assert abs(float(f_2) - 107.7) < 0.05
+    assert abs(float(f_3) - 737.9) < 0.05
+    assert abs(float(f_4) - 12194) < 0.5
+
+    for f in ('f_1', 'f_2', 'f_3', 'f_4'):
+        print('{} = {}'.format(f, float(eval(f))))
+
+    # Section 5.4.8  Normalizations
+    f = 1000
+    C1000 = (f_4**2 * f**2)/((f**2 + f_1**2) * (f**2 + f_4**2))
+    A1000 = (f_4**2 * f**4)/((f**2 + f_1**2) * sp.sqrt(f**2 + f_2**2) *
+                             sp.sqrt(f**2 + f_3**2) * (f**2 + f_4**2))
+
+    # Section 5.4.11
+    assert abs(20*log10(float(C1000)) + 0.062) < 0.0005
+    assert abs(20*log10(float(A1000)) + 2.000) < 0.0005
+
+    for norm in ('C1000', 'A1000'):
+        print('{} = {}'.format(norm, float(eval(norm))))
+
+
+def script(gain=40):
+    #Constants
+    # gain= (28.8+12)
+    Vadc = 2
+    dt = 1
+    sensitivity = -38
+    #sensitivity = -45
+    dBref = 94
+
+    #Load the .wav file
+    w, fs = maad.sound.load('Audio Bcn/ext1-max.berned.WAV')
+    #p = maad.spl.wav2leq(wave=w, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    #p = maad.spl.wav2dBSPL(w, gain, Vadc, sensitivity, dBref, pRef=2e-05)
+
+    #apply A weighting filter to .wav signal
+    # w = waveform_analysis.A_weight(w, fs)
+    rms_value = np.sqrt(np.mean(np.abs(w) ** 2))
+    print(len(w))
+    #print(weighted_signal)
+    #Obtein the equivalent values from the A weighted signal
+    p = maad.spl.wav2leq(wave=w, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    print(len(p))
+    print(p)
+    print('LAeq from wav', maad.util.mean_dB(p))
+    plt.figure(len(p))
+    plt.plot(p)
+
+    return plt.show()
+
+
+def temp_new_a_weight():
+        #Constants
+    gain= 2.8 #if sensitivity=-38 then gain=40.8
+    Vadc = 2
+    dt = 1
+    sensitivity = 0 # if sensitivity=0 then gain=2.8
+    dBref = 94
+    coef_calib=0 #Valor SPL_APP - SPL_Sonometro. Usar este valor para ajustar LAeq (y posteriores).
+    flag_calib1=0
+    flag_calib2=0
+    want_to_calibrate=input("¿Quieres calibrar?")
+    match want_to_calibrate:
+        case "yes":
+            is_sonometer = input("¿Tienes un sonometro?")
+            match is_sonometer:
+                case "yes":
+                    user_dBA=input("Introduce the SPL (dBA) value: ")
+                    user_dBA=float(user_dBA)
+                    flag_calib1=1
+                    flag_calib2=1
+                case "no":
+                    print("Measure in a silent room. It's supposed to measure 40dBA.")
+                    flag_calib1 = 1
+                    flag_calib2 = 0
+        case "no":
+            print("Ok, default values are used.")
+            flag_calib1=0
+
+    #Load the .wav file
+    w, fs = maad.sound.load('Audios test/test-office-AA-iphone.wav')
+    #w, fs = load('Audio Bcn/rosa-ortega.alsius.marta.WAV', wav_calib=2 * 2 **0.5)
+    #w, fs = load('Audio Bcn/rosa-ortega.alsius.marta.WAV')
+
+    #p = maad.spl.wav2leq(wave=w, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    #p = maad.spl.wav2dBSPL(w, gain, Vadc, sensitivity, dBref, pRef=2e-05)
+
+    #apply A weighting filter to .wav signal
+    wA = waveform_analysis.A_weight(w, fs)
+    rms_value = np.sqrt(np.mean(np.abs(wA) ** 2))
+    print(len(wA))
+    #print(weighted_signal)
+
+    #Obtein the equivalent values from the A weighted signal
+    LAeq = maad.spl.wav2leq(wave=wA, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    LAeqT= maad.util.mean_dB(LAeq)
+    if flag_calib1==1 and flag_calib2==1:
+        coef_calib=LAeqT-user_dBA
+        LAeq_calib=LAeq-coef_calib
+        LAeqT_calib= LAeqT-coef_calib
+    elif flag_calib1==1 and flag_calib2==0:
+        coef_calib = LAeqT-40
+        LAeq_calib = LAeq-coef_calib
+        LAeqT_calib = LAeqT-coef_calib
+    elif flag_calib1==0:
+        coef_calib=0
+        LAeq_calib = LAeq - coef_calib
+        LAeqT_calib = LAeqT - coef_calib
+    print("Wav file duration (in seconds): ",len(LAeq))
+    #print(LAeq)
+    print('LAeq from wav', LAeqT)
+    print("LAeq calibrated: ",LAeqT_calib)
+    print("Factor de corrección: ",coef_calib)
+
+# app.config['MAX_CONTENT_LENGTH'] = 50 * 1000 * 1000
+
+def acousticFluctuation(specificLoudness, fmod=4):
+    specificLoudnessdiff = np.zeros(len(specificLoudness))
+    for i in range(len(specificLoudness)):
+        if i == 0:
+            specificLoudnessdiff[i] = specificLoudness[i]
+        else:
+            specificLoudnessdiff[i] = abs(specificLoudness[i] - specificLoudness[i - 1])
+    F = (0.008 * sum(0.1 * specificLoudnessdiff)) / ((fmod / 4) + (fmod / 4))
+    return F
+
 if __name__ == "__main__":
     # app.run(threaded=True)
     app.run(debug=True, threaded=True)
