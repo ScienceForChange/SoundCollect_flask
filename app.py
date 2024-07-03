@@ -42,6 +42,15 @@ from mosqito.sq_metrics import sharpness_din_from_loudness
 from mosqito.sq_metrics import sharpness_din_freq
 
 
+
+# from A_weighting import A_weighting
+from numpy import sum, log10, abs, mean, sqrt
+# import librosa
+# _MIN_ = sys.float_info.min
+# sys.path.append('..')
+from mosqito.sound_level_meter import noct_spectrum
+
+
 app = Flask(__name__)
 CORS(app)
 
@@ -219,7 +228,46 @@ def audio_new(coeficiente_calibracion):
     # r, r_spec, bark, time = roughness_dw(sig, fs, overlap=0)
     # response['roughness'] = np.mean(r)
 
-    # calculate 1/3 octave
+    # calculate 1/3 octave ========================================================================
+    #apply A weighting filter to .wav signal
+    # wave_A = waveform_analysis.A_weight(signal, fs)
+    # rms_value = np.sqrt(np.mean(np.abs(wave_A) ** 2))
+
+    # Frequency analysis: Use noct_spectrum with signal weighted A
+    # spec_3, freq_3 = noct_spectrum(wave_A, fs, fmin=50, fmax=20000, n=3)
+    # spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
+
+    # response['frequency'] = spec_3_dB
+
+
+
+
+    # signal_with_a_weighting = waveform_analysis.A_weight(w, fs)
+    # w, fs = maad.sound.load(file)
+
+    # Frequency analysis: Use noct_spectrum with signal weighted A
+    spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=20000, n=3)
+    spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
+
+    spec_3_dB_dict = dict(zip(freq_3, spec_3_dB.tolist()))
+
+    # freq_3 = freq_3.tolist()
+    # spec_3_dB = spec_3_dB.tolist()
+    # spec_3_dB = np.array(spec_3_dB)
+    # response['freq_3'] = freq_3
+    # response['spec_3_dB'] = spec_3_dB
+    response['frequency'] = spec_3_dB_dict
+
+
+
+    # create array with ten random numbers
+    # random_numbers = np.random.randint(20, 1000, 30)
+
+    # make random_numbers json serializable
+    # random_numbers = random_numbers.tolist()
+
+    # response['frequency'] = random_numbers
+
 
     return response
 
