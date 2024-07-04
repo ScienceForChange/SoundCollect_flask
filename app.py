@@ -25,7 +25,6 @@ from flask_cors import CORS
 
 import random
 
-# import sys
 # sys.path.append('..')
 
 from mosqito.utils import load
@@ -40,6 +39,14 @@ from mosqito.sq_metrics import sharpness_din_st
 from mosqito.sq_metrics import sharpness_din_perseg
 from mosqito.sq_metrics import sharpness_din_from_loudness
 from mosqito.sq_metrics import sharpness_din_freq
+
+
+from A_weighting import A_weighting
+from numpy import sum, log10, abs, mean, sqrt
+import librosa
+_MIN_ = sys.float_info.min
+sys.path.append('..')
+from mosqito.sound_level_meter import noct_spectrum
 
 
 app = Flask(__name__)
@@ -156,7 +163,6 @@ def audio_new(coeficiente_calibracion):
     dBref = 94
 
     #Load the .wav file
-    # signal, fs = maad.sound.load('./audio/Oficina-X.WAV')
     signal, fs = maad.sound.load('./audio/audio_to_process.WAV')
 
     #apply "A" weighting filter to .wav signal
@@ -213,13 +219,29 @@ def audio_new(coeficiente_calibracion):
     N, N_specific, bark_axis = loudness_zwst(sig, fs, field_type="free")
     response['loudness'] = N
 
-    # calculate audio roughness ===================================================================
-    # takes too much time to get roughnes parameter 
+    #  # calculate audio roughness ================================================================
+    #  # takes too much time/CPU to get roughnes parameter 
     # sig, fs = maad.sound.load(audio_file )
     # r, r_spec, bark, time = roughness_dw(sig, fs, overlap=0)
     # response['roughness'] = np.mean(r)
 
-    # calculate 1/3 octave
+    # calculate 1/3 octave ========================================================================
+    # Frequency analysis: Use noct_spectrum with signal weighted A
+    spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=20000, n=3)
+    spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
+
+    # clean spec_3 array
+    spec_3 = [item[0] for item in spec_3]
+    # clean spec_3_dB array
+    spec_3_dB = [item[0] for item in spec_3_dB]
+
+    # add 1/3 octave to response for x-axis
+    response['freq_3'] = freq_3.tolist()
+    # add 1/3 octave to response for y-axis without ponderation
+    response['spec_3'] = spec_3
+    # add 1/3 octave to response for y-axis with ponderation
+    response['spec_3_dB'] = spec_3_dB
+
 
     return response
 
