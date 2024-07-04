@@ -41,20 +41,12 @@ from mosqito.sq_metrics import sharpness_din_from_loudness
 from mosqito.sq_metrics import sharpness_din_freq
 
 
-<<<<<<< HEAD
-from A_weighting import A_weighting
-from numpy import sum, log10, abs, mean, sqrt
-import librosa
-_MIN_ = sys.float_info.min
-sys.path.append('..')
-=======
 
 # from A_weighting import A_weighting
 from numpy import sum, log10, abs, mean, sqrt
 # import librosa
 # _MIN_ = sys.float_info.min
 # sys.path.append('..')
->>>>>>> 1ded16aa33655fd47851ee65b10ca6f0a3d28f7c
 from mosqito.sound_level_meter import noct_spectrum
 
 
