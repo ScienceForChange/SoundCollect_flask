@@ -300,12 +300,12 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     response = {}
     response_data = {}
 
-    response_data['LAeqT'] = LAeqT.tolist()
-    response_data['Leq'] = LAeq
-    response_data['Lmin'] = LAmin
-    response_data['Lmax'] = LAmax
-    response_data['L90'] = L90
-    response_data['L10'] = L10
+    response_data['LAeqT'] = [int(value) for value in LAeqT.tolist()]
+    response_data['Leq'] = int(LAeq)
+    response_data['Lmin'] = int(LAmin)
+    response_data['Lmax'] = int(LAmax)
+    response_data['L90'] = int(L90)
+    response_data['L10'] = int(L10)
 
     # response.headers.add('Access-Control-Allow-Origin', '*')
 
