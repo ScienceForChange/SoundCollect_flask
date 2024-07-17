@@ -252,12 +252,14 @@ def convert_audio_into_parameters(coeficiente_calibracion):
 
     # if request.method == 'POST':
 
-    f = request.files['uploaded_file']
+    file = request.files['uploaded_file']
 
-    # create random number
+    # Create random number to uniquely identify each audio with different filename to evaluating them later.
+    # This way each sound will be separated during the process from each other, right now it rewrites the new sound every time user uploads a audio for processing
     random_number = random.randint(1, 100000)
 
-    f.save(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
+    # file needs to be saved before applying any calculating process
+    file.save(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
 
     coeficiente_calibracion = float(coeficiente_calibracion)
     gain = 40
@@ -268,7 +270,6 @@ def convert_audio_into_parameters(coeficiente_calibracion):
 
     #Load the .wav file
     signal, fs = maad.sound.load(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
-    # signal, fs = maad.sound.load(request.files.get['uploaded_file'])
 
     #apply "A" weighting filter to .wav signal
     signal_with_a_weighting = waveform_analysis.A_weight(signal, fs)
@@ -276,7 +277,7 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     #Obtein the equivalent values over time from the "A" weighted signal
     LAeqT = maad.spl.wav2leq(wave=signal_with_a_weighting, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
 
-    # calculare Leq
+    # calculate Leq
     LAeq = maad.util.mean_dB(LAeqT)
 
     # apply correction from user input value
@@ -307,12 +308,53 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     response_data['L90'] = L90
     response_data['L10'] = L10
 
+    audio_file = f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}"
+
+    # calculate fluctuation strength  from audio file =============================================
+    sig, fs = load(audio_file, wav_calib=2 * 2 ** 0.5)
+    #  compute acoustic Loudness according to Zwicker method for stationary signals
+    N, N_specific, bark_axis = loudness_zwst(sig, fs, field_type="free")
+    F = acousticFluctuation(N_specific, fmod=4)
+    response_data['fluctuation'] = F
+
+    # calculate sharpness =========================================================================
+    sharpness = sharpness_din_st(sig, fs, weighting="din")
+    response_data['sharpness'] = sharpness
+
+    # calculate loudness ==========================================================================
+    # compute acoustic Loudness according to Zwicker method for stationary signals
+    N, N_specific, bark_axis = loudness_zwst(sig, fs, field_type="free")
+    response_data['loudness'] = N
+
+    #  # calculate audio roughness ================================================================
+    #  # takes too much time/CPU to get roughnes parameter 
+    # sig, fs = maad.sound.load(audio_file )
+    # r, r_spec, bark, time = roughness_dw(sig, fs, overlap=0)
+    # response['roughness'] = np.mean(r)
+
+    # calculate 1/3 octave ========================================================================
+    # Frequency analysis: Use noct_spectrum with signal weighted A
+    spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=20000, n=3)
+    spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
+
+    # clean spec_3 array
+    spec_3 = [item[0] for item in spec_3]
+    # clean spec_3_dB array
+    spec_3_dB = [item[0] for item in spec_3_dB]
+
+    # add 1/3 octave to response for x-axis
+    response_data['freq_3'] = freq_3.tolist()
+    # add 1/3 octave to response for y-axis without ponderation
+    response_data['spec_3'] = spec_3
+    # add 1/3 octave to response for y-axis with ponderation
+    response_data['spec_3_dB'] = spec_3_dB
+
     # response.headers.add('Access-Control-Allow-Origin', '*')
 
     response['status'] = 'success'
     response['data'] = response_data
 
-    # remove file after processing it
+    # remove audio file after processing it
     os.remove(f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}")
 
     return response
@@ -470,6 +512,7 @@ def acousticFluctuation(specificLoudness, fmod=4):
             specificLoudnessdiff[i] = abs(specificLoudness[i] - specificLoudness[i - 1])
     F = (0.008 * sum(0.1 * specificLoudnessdiff)) / ((fmod / 4) + (fmod / 4))
     return F
+
 
 def _derive_coefficients():
     """
