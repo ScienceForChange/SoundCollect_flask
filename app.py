@@ -301,12 +301,12 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     response = {}
     response_data = {}
 
-    response_data['LAeqT'] = LAeqT.tolist()
-    response_data['Leq'] = LAeq
-    response_data['Lmin'] = LAmin
-    response_data['Lmax'] = LAmax
-    response_data['L90'] = L90
-    response_data['L10'] = L10
+    response_data['LAeqT'] = [int(value) for value in LAeqT.tolist()]
+    response_data['Leq'] = int(LAeq)
+    response_data['Lmin'] = int(LAmin)
+    response_data['Lmax'] = int(LAmax)
+    response_data['L90'] = int(L90)
+    response_data['L10'] = int(L10)
 
     audio_file = f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}"
 
@@ -334,7 +334,7 @@ def convert_audio_into_parameters(coeficiente_calibracion):
 
     # calculate 1/3 octave ========================================================================
     # Frequency analysis: Use noct_spectrum with signal weighted A
-    spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=20000, n=3)
+    spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=16000, n=3)
     spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
 
     # clean spec_3 array
