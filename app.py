@@ -343,26 +343,6 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     # response['roughness'] = np.mean(r)
 
     # calculate 1/3 octave ========================================================================
-    
-    
-    # # Frequency analysis: Use noct_spectrum with signal weighted A
-    # spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=16000, n=3)
-    # spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
-
-    # # clean spec_3 array
-    # spec_3 = [item[0] for item in spec_3]
-    # # clean spec_3_dB array
-    # spec_3_dB = [item[0] for item in spec_3_dB]
-
-    # # add 1/3 octave to response for x-axis
-    # response_data['freq_3'] = freq_3.tolist()
-    # # add 1/3 octave to response for y-axis without ponderation
-    # response_data['spec_3'] = spec_3
-    # # add 1/3 octave to response for y-axis with ponderation
-    # response_data['spec_3_dB'] = spec_3_dB
-
-
-
     # Frequency analysis: Use noct_spectrum with signal weighted A
     spec_3_A, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=16000, n=3)
     spec_3_sin_A, freq_3 = noct_spectrum(signal, fs, fmin=50, fmax=16000, n=3)
@@ -389,10 +369,28 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     # add 1/3 octave to response for y-axis with ponderation
     response_data['spec_3_dB'] = spec_3_dB
 
+    # calculate spec_3_dBC value ==================================================================
+    # LZeq = maad.spl.wav2leq(wave=signal, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+
+    C_weighting_values = np.array([-1.3, -0.8, -0.5, -0.3, -0.2, -0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.1, -0.2, -0.3, -0.5, -0.8, -1.3, -2.0, -3, -4.4, -6.2, -8.6])
+
+    #Frequency analysis: Use noct_spectrum with signal weighted A
+    f_start = 50
+    f_final = 16000
+    specZ_3, freq_3 = noct_spectrum(signal, fs, f_start, f_final, n=3)
+
+    spec_3_dBZ = 20 * np.log10(specZ_3 / 2e-5)
+    spec_3_dBC = spec_3_dBZ + C_weighting_values
+    
+    # original version of the code, but it shows list within the list of spec_3_dBC variable
+    # response_data['spec_3_dBC'] = spec_3_dBC
+     
+    # calculate median values for spec_3_dBC
+    spec_3_dBC_median = [np.median(sublist) for sublist in spec_3_dBC]
+    response_data['spec_3_dBC'] = spec_3_dBC_median
 
 
-    # response.headers.add('Access-Control-Allow-Origin', '*')
-
+    # create response =============================================================================
     response['status'] = 'success'
     response['data'] = response_data
 
