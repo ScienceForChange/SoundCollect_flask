@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 from numpy import pi, log10
 from scipy.signal import zpk2tf, zpk2sos, freqs, sosfilt
-from waveform_analysis.weighting_filters._filter_design import _zpkbilinear
+# from waveform_analysis.weighting_filters._filter_design import _zpkbilinear
 
 from flask import Flask
 from flask_cors import CORS
@@ -311,12 +311,12 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     response = {}
     response_data = {}
 
-    response_data['LAeqT'] = [int(value) for value in LAeqT.tolist()]
-    response_data['Leq'] = int(LAeq)
-    response_data['Lmin'] = int(LAmin)
-    response_data['Lmax'] = int(LAmax)
-    response_data['L90'] = int(L90)
-    response_data['L10'] = int(L10)
+    response_data['LAeqT'] = [round(value, 1) for value in LAeqT.tolist()]
+    response_data['Leq'] = round(LAeq, 2)
+    response_data['Lmin'] = round(LAmin, 2)
+    response_data['Lmax'] = round(LAmax, 2)
+    response_data['L90'] = round(L90, 2)
+    response_data['L10'] = round(L10, 2)
 
     audio_file = f"./audio_calibrated/{random_number}_{request.files['uploaded_file'].filename}"
 
@@ -343,21 +343,53 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     # response['roughness'] = np.mean(r)
 
     # calculate 1/3 octave ========================================================================
+    
+    
+    # # Frequency analysis: Use noct_spectrum with signal weighted A
+    # spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=16000, n=3)
+    # spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
+
+    # # clean spec_3 array
+    # spec_3 = [item[0] for item in spec_3]
+    # # clean spec_3_dB array
+    # spec_3_dB = [item[0] for item in spec_3_dB]
+
+    # # add 1/3 octave to response for x-axis
+    # response_data['freq_3'] = freq_3.tolist()
+    # # add 1/3 octave to response for y-axis without ponderation
+    # response_data['spec_3'] = spec_3
+    # # add 1/3 octave to response for y-axis with ponderation
+    # response_data['spec_3_dB'] = spec_3_dB
+
+
+
     # Frequency analysis: Use noct_spectrum with signal weighted A
-    spec_3, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=16000, n=3)
-    spec_3_dB = 20 * np.log10(spec_3 / 2e-5)
+    spec_3_A, freq_3 = noct_spectrum(signal_with_a_weighting, fs, fmin=50, fmax=16000, n=3)
+    spec_3_sin_A, freq_3 = noct_spectrum(signal, fs, fmin=50, fmax=16000, n=3)
+
+    spec_3_dBA = 20 * np.log10(spec_3_A / 2e-5)
+    spec_3_dB = 20 * np.log10(spec_3_sin_A / 2e-5)
 
     # clean spec_3 array
-    spec_3 = [item[0] for item in spec_3]
+    spec_3_A = [item[0] for item in spec_3_A]
+    
+    # clean spec_3_dB array
+    spec_3_dBA = [item[0] for item in spec_3_dBA]
+
+    # clean spec_3 array
+    spec_3_sin_A = [item[0] for item in spec_3_sin_A]
+
     # clean spec_3_dB array
     spec_3_dB = [item[0] for item in spec_3_dB]
 
     # add 1/3 octave to response for x-axis
     response_data['freq_3'] = freq_3.tolist()
     # add 1/3 octave to response for y-axis without ponderation
-    response_data['spec_3'] = spec_3
+    response_data['spec_3'] = spec_3_dBA
     # add 1/3 octave to response for y-axis with ponderation
     response_data['spec_3_dB'] = spec_3_dB
+
+
 
     # response.headers.add('Access-Control-Allow-Origin', '*')
 
