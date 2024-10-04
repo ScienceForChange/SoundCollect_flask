@@ -355,6 +355,9 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     
     # clean spec_3_dB array
     spec_3_dBA = [item[0] for item in spec_3_dBA]
+    # for i in range(min(3, len(spec_3_dBA))):
+    #     if spec_3_dBA[i] < 15:
+    #         spec_3_dBA[i] += 10
 
     # clean spec_3 array
     spec_3_sin_A = [item[0] for item in spec_3_sin_A]
@@ -380,14 +383,11 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     specZ_3, freq_3 = noct_spectrum(signal, fs, f_start, f_final, n=3)
 
     spec_3_dBZ = 20 * np.log10(specZ_3 / 2e-5)
-    spec_3_dBC = spec_3_dBZ + C_weighting_values
+    # response_data['spec_3_dBZ'] = spec_3_dBZ.tolist()
+    spec_3_dBC = spec_3_dB + C_weighting_values
     
-    # original version of the code, but it shows list within the list of spec_3_dBC variable
-    # response_data['spec_3_dBC'] = spec_3_dBC
-     
-    # calculate median values for spec_3_dBC
-    spec_3_dBC_median = [np.median(sublist) for sublist in spec_3_dBC]
-    response_data['spec_3_dBC'] = spec_3_dBC_median
+    # response_data['C_weighting_values'] = C_weighting_values.tolist()
+    response_data['spec_3_dBC'] = spec_3_dBC.tolist()
 
 
     # create response =============================================================================
