@@ -6,3 +6,24 @@ audio_calibrated
 #ignore python cache files
 __pycache__
 
+# Entornos virtuales
+venv/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+
+# Archivos de configuración
+*.env
+*.db
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de log
+*.log
+
+# Otros
+*.sqlite3
+*.pytest_cache/
