@@ -286,9 +286,12 @@ def convert_audio_into_parameters(coeficiente_calibracion):
 
     #Obtein the equivalent values over time from the "A" weighted signal
     LAeqT = maad.spl.wav2leq(wave=signal_with_a_weighting, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+    LeqT = maad.spl.wav2leq(wave=signal, f=fs, gain=gain, Vadc=Vadc, dt=dt, sensitivity=sensitivity, dBref=dBref)
+
 
     # calculate Leq
     LAeq = maad.util.mean_dB(LAeqT)
+    Leq = maad.util.mean_dB(LeqT)
 
     # apply correction from user input value
     LAeqT = LAeqT - coeficiente_calibracion
@@ -312,7 +315,8 @@ def convert_audio_into_parameters(coeficiente_calibracion):
     response_data = {}
 
     response_data['LAeqT'] = [round(value, 1) for value in LAeqT.tolist()]
-    response_data['Leq'] = round(LAeq, 2)
+    response_data['LAeq'] = round(LAeq, 2)
+    response_data['Leq'] = round(Leq, 2)
     response_data['Lmin'] = round(LAmin, 2)
     response_data['Lmax'] = round(LAmax, 2)
     response_data['L90'] = round(L90, 2)
